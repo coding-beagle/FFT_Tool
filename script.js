@@ -1,0 +1,166 @@
+const canvas = document.getElementById('timeDomain');
+const ctx = canvas.getContext('2d');
+
+const entry_field = document.getElementById('textbox_function')
+
+let startX, startY;
+let dragging = false;
+
+let cameraX = 300;
+let cameraY = 250;
+
+let prevCameraX = cameraX;
+let prevCameraY = cameraY;
+
+const CWIDTH = canvas.clientWidth;
+const CHEIGHT = canvas.clientHeight;
+
+const DENOMINATIONS_X = 10;
+const DENOMINATIONS_Y = 10;
+
+const UNITS_PER_CELL_X = 1; // each cell = 1 unit on x-axis
+const UNITS_PER_CELL_Y = 1; // each cell = 1 unit on y-axis
+
+const PIXELS_PER_CELL_X = CWIDTH / DENOMINATIONS_X;
+const PIXELS_PER_CELL_Y = CHEIGHT / DENOMINATIONS_Y;
+
+const PIXELS_PER_UNIT_X = PIXELS_PER_CELL_X / UNITS_PER_CELL_X;
+const PIXELS_PER_UNIT_Y = PIXELS_PER_CELL_Y / UNITS_PER_CELL_Y;
+
+const INCREMENT = 0.01;
+
+let function_to_draw;
+let function_buffer;
+
+const drawLine = (x, y, x_end, y_end, colour, thickness = 1) => {
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x_end, y_end);
+    ctx.lineWidth = thickness;
+    ctx.strokeStyle = colour;
+    ctx.stroke();
+}
+
+const convertCartesianToCanvasCoords = (x, y) => {
+    // Convert coordinate units to pixel offset, then apply camera
+    return {
+        'x': cameraX + (x * PIXELS_PER_UNIT_X),
+        'y': cameraY - (y * PIXELS_PER_UNIT_Y)  // note: minus because canvas y is inverted
+    };
+}
+
+const convertCanvasToCartesianCoords = (screenX, screenY) => {
+    return {
+        'x': (screenX - cameraX) / PIXELS_PER_UNIT_X,
+        'y': -(screenY - cameraY) / PIXELS_PER_UNIT_Y  // inverted
+    };
+}
+
+const getMinAndMaxX = () => {
+    const leastX = convertCanvasToCartesianCoords(0, 0);
+    const mostX = convertCanvasToCartesianCoords(599, 0);
+
+    return { 'minX': leastX.x, 'maxX': mostX.x };
+}
+
+const drawCircle = (x, y, radius, colour) => {
+    ctx.beginPath();
+    ctx.arc(x, y, radius, 0, 2 * Math.PI);
+    ctx.fillStyle = colour;
+    ctx.fill()
+}
+
+const redrawGridWithCamera = () => {
+    ctx.clearRect(0, 0, CWIDTH, CHEIGHT);
+
+    const distance_between_denoms_x = CWIDTH / DENOMINATIONS_X;
+    const distance_between_denoms_y = CHEIGHT / DENOMINATIONS_Y;
+
+
+    const startGridX = Math.floor(-cameraX / distance_between_denoms_x);
+    const startGridY = Math.floor(-cameraY / distance_between_denoms_y);
+
+    for (let i = startGridX; i <= startGridX + DENOMINATIONS_X + 1; i++) {
+        const x_val = i * distance_between_denoms_x + cameraX;
+        if (x_val >= 0 && x_val <= CWIDTH) {
+            const colour = (i === 0) ? 'black' : 'blue'
+            const thickness = (i === 0) ? 2 : 1;
+            drawLine(x_val, 0, x_val, CHEIGHT, colour, thickness);
+        }
+    }
+
+    for (let i = startGridY; i <= startGridY + DENOMINATIONS_Y + 1; i++) {
+        const y_val = i * distance_between_denoms_y + cameraY;
+        if (y_val >= 0 && y_val <= CHEIGHT) {
+            const colour = (i === 0) ? 'black' : 'blue';
+            const thickness = (i === 0) ? 2 : 1;
+            drawLine(0, y_val, CWIDTH, y_val, colour, thickness);
+        }
+    }
+}
+
+const handleMouseDown = (event) => {
+    dragging = true;
+    startX = event.clientX;
+    startY = event.clientY;
+
+    prevCameraX = cameraX;
+    prevCameraY = cameraY;
+}
+
+const handleMouseUp = () => {
+    dragging = false;
+}
+
+const drawFunction = () => {
+    if (!function_buffer) { return }
+    for (let i = 0; i < function_buffer.length; i++) {
+        coordinates = function_buffer[i];
+        const canvas_coords = convertCartesianToCanvasCoords(coordinates.x, coordinates.y);
+        drawCircle(canvas_coords.x, canvas_coords.y, 1, 'red');
+    }
+}
+
+const drawGridAndOrigin = () => {
+    redrawGridWithCamera();
+    tryFillGlobalBuffer();
+    drawFunction();
+}
+
+const handleMouseMove = (event) => {
+    if (dragging) {
+        cameraX = prevCameraX + event.clientX - startX;
+        cameraY = prevCameraY + event.clientY - startY;
+        drawGridAndOrigin();
+    }
+}
+
+const tryFillGlobalBuffer = () => {
+    try {
+        const arr = [];
+        const x_vals = getMinAndMaxX();
+        for (let i = x_vals.minX; i < x_vals.maxX; i += INCREMENT) {
+            const res = function_to_draw(i);
+            arr.push({ 'x': i, 'y': res });
+        }
+        // if all that completes successfully, change global buffer
+        function_buffer = arr;
+    }
+    catch (e) {
+        console.log(e)
+    }
+}
+
+const handleFunction = (event) => {
+    const f = new Function('x', 'return ' + entry_field.value);
+    function_to_draw = f;
+
+    tryFillGlobalBuffer();
+}
+
+drawGridAndOrigin();
+
+canvas.addEventListener('mousedown', handleMouseDown);
+canvas.addEventListener('mouseup', handleMouseUp);
+canvas.addEventListener('mousemove', handleMouseMove);
+entry_field.addEventListener('input', handleFunction);
