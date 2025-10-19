@@ -1,19 +1,31 @@
-const canvas = document.getElementById('timeDomain');
-const ctx = canvas.getContext('2d');
+const canvas_time = document.getElementById('timeDomain');
+const ctx_time = canvas_time.getContext('2d');
+
+const canvas_frequency = document.getElementById('freqDomain');
+const ctx_frequency = canvas_frequency.getContext('2d');
+
+const FFT_RES = 16384
+
+let fft = new FFT(16384); // Must be a power of 2
 
 const entry_field = document.getElementById('textbox_function')
 
 let startX, startY;
-let dragging = false;
+let dragging_time = false;
+let dragging_freq = false;
 
-let cameraX = 300;
-let cameraY = 250;
+let cameraX_TIME = 300;
+let cameraY_TIME = 250;
+let prevCameraX_TIME = cameraX_TIME;
+let prevCameraY_TIME = cameraY_TIME;
 
-let prevCameraX = cameraX;
-let prevCameraY = cameraY;
+let cameraX_FREQUENCY = 0;
+let cameraY_FREQUENCY = 250;
+let prevCameraX_FREQUENCY = cameraX_FREQUENCY;
+let prevCameraY_FREQUENCY = cameraY_FREQUENCY;
 
-const CWIDTH = canvas.clientWidth;
-const CHEIGHT = canvas.clientHeight;
+const CWIDTH = canvas_time.clientWidth;
+const CHEIGHT = canvas_time.clientHeight;
 
 const DENOMINATIONS_X = 10;
 const DENOMINATIONS_Y = 10;
@@ -27,12 +39,14 @@ const PIXELS_PER_CELL_Y = CHEIGHT / DENOMINATIONS_Y;
 const PIXELS_PER_UNIT_X = PIXELS_PER_CELL_X / UNITS_PER_CELL_X;
 const PIXELS_PER_UNIT_Y = PIXELS_PER_CELL_Y / UNITS_PER_CELL_Y;
 
-const INCREMENT = 0.01;
+const INCREMENT = 0.001;
 
 let function_to_draw;
 let function_buffer;
 
-const drawLine = (x, y, x_end, y_end, colour, thickness = 1) => {
+let freq_buffer;
+
+const drawLine = (x, y, x_end, y_end, colour, thickness = 1, ctx = ctx_time) => {
     ctx.beginPath();
     ctx.moveTo(x, y);
     ctx.lineTo(x_end, y_end);
@@ -44,15 +58,30 @@ const drawLine = (x, y, x_end, y_end, colour, thickness = 1) => {
 const convertCartesianToCanvasCoords = (x, y) => {
     // Convert coordinate units to pixel offset, then apply camera
     return {
-        'x': cameraX + (x * PIXELS_PER_UNIT_X),
-        'y': cameraY - (y * PIXELS_PER_UNIT_Y)  // note: minus because canvas y is inverted
+        'x': cameraX_TIME + (x * PIXELS_PER_UNIT_X),
+        'y': cameraY_TIME - (y * PIXELS_PER_UNIT_Y)  // note: minus because canvas y is inverted
+    };
+}
+
+const convertCartesianToCanvasCoordsFreq = (x, y) => {
+    // Convert coordinate units to pixel offset, then apply camera
+    return {
+        'x': cameraX_FREQUENCY + (x * PIXELS_PER_UNIT_X),
+        'y': cameraY_FREQUENCY - (y * PIXELS_PER_UNIT_Y)  // note: minus because canvas y is inverted
     };
 }
 
 const convertCanvasToCartesianCoords = (screenX, screenY) => {
     return {
-        'x': (screenX - cameraX) / PIXELS_PER_UNIT_X,
-        'y': -(screenY - cameraY) / PIXELS_PER_UNIT_Y  // inverted
+        'x': (screenX - cameraX_TIME) / PIXELS_PER_UNIT_X,
+        'y': -(screenY - cameraY_TIME) / PIXELS_PER_UNIT_Y  // inverted
+    };
+}
+
+const convertCanvasToCartesianCoordsFreq = (screenX, screenY) => {
+    return {
+        'x': (screenX - cameraX_FREQUENCY) / PIXELS_PER_UNIT_X,
+        'y': -(screenY - cameraY_FREQUENCY) / PIXELS_PER_UNIT_Y  // inverted
     };
 }
 
@@ -63,25 +92,25 @@ const getMinAndMaxX = () => {
     return { 'minX': leastX.x, 'maxX': mostX.x };
 }
 
-const drawCircle = (x, y, radius, colour) => {
+const drawCircle = (x, y, radius, colour, ctx = ctx_time) => {
     ctx.beginPath();
     ctx.arc(x, y, radius, 0, 2 * Math.PI);
     ctx.fillStyle = colour;
-    ctx.fill()
+    ctx.fill();
 }
 
 const redrawGridWithCamera = () => {
-    ctx.clearRect(0, 0, CWIDTH, CHEIGHT);
+    ctx_time.clearRect(0, 0, CWIDTH, CHEIGHT);
 
     const distance_between_denoms_x = CWIDTH / DENOMINATIONS_X;
     const distance_between_denoms_y = CHEIGHT / DENOMINATIONS_Y;
 
 
-    const startGridX = Math.floor(-cameraX / distance_between_denoms_x);
-    const startGridY = Math.floor(-cameraY / distance_between_denoms_y);
+    const startGridX = Math.floor(-cameraX_TIME / distance_between_denoms_x);
+    const startGridY = Math.floor(-cameraY_TIME / distance_between_denoms_y);
 
     for (let i = startGridX; i <= startGridX + DENOMINATIONS_X + 1; i++) {
-        const x_val = i * distance_between_denoms_x + cameraX;
+        const x_val = i * distance_between_denoms_x + cameraX_TIME;
         if (x_val >= 0 && x_val <= CWIDTH) {
             const colour = (i === 0) ? 'black' : 'blue'
             const thickness = (i === 0) ? 2 : 1;
@@ -90,7 +119,7 @@ const redrawGridWithCamera = () => {
     }
 
     for (let i = startGridY; i <= startGridY + DENOMINATIONS_Y + 1; i++) {
-        const y_val = i * distance_between_denoms_y + cameraY;
+        const y_val = i * distance_between_denoms_y + cameraY_TIME;
         if (y_val >= 0 && y_val <= CHEIGHT) {
             const colour = (i === 0) ? 'black' : 'blue';
             const thickness = (i === 0) ? 2 : 1;
@@ -99,17 +128,59 @@ const redrawGridWithCamera = () => {
     }
 }
 
+const redrawGridWithCameraFreq = () => {
+    ctx_frequency.clearRect(0, 0, CWIDTH, CHEIGHT);
+
+    const distance_between_denoms_x = CWIDTH / DENOMINATIONS_X;
+    const distance_between_denoms_y = CHEIGHT / DENOMINATIONS_Y;
+
+
+    const startGridX = Math.floor(-cameraX_FREQUENCY / distance_between_denoms_x);
+    const startGridY = Math.floor(-cameraY_FREQUENCY / distance_between_denoms_y);
+
+    for (let i = startGridX; i <= startGridX + DENOMINATIONS_X + 1; i++) {
+        const x_val = i * distance_between_denoms_x + cameraX_FREQUENCY;
+        if (x_val >= 0 && x_val <= CWIDTH) {
+            const colour = (i === 0) ? 'black' : 'blue'
+            const thickness = (i === 0) ? 2 : 1;
+            drawLine(x_val, 0, x_val, CHEIGHT, colour, thickness, ctx_frequency);
+        }
+    }
+
+    for (let i = startGridY; i <= startGridY + DENOMINATIONS_Y + 1; i++) {
+        const y_val = i * distance_between_denoms_y + cameraY_FREQUENCY;
+        if (y_val >= 0 && y_val <= CHEIGHT) {
+            const colour = (i === 0) ? 'black' : 'blue';
+            const thickness = (i === 0) ? 2 : 1;
+            drawLine(0, y_val, CWIDTH, y_val, colour, thickness, ctx_frequency);
+        }
+    }
+}
+
 const handleMouseDown = (event) => {
-    dragging = true;
+    dragging_time = true;
     startX = event.clientX;
     startY = event.clientY;
 
-    prevCameraX = cameraX;
-    prevCameraY = cameraY;
+    prevCameraX_TIME = cameraX_TIME;
+    prevCameraY_TIME = cameraY_TIME;
 }
 
 const handleMouseUp = () => {
-    dragging = false;
+    dragging_time = false;
+}
+
+const handleMouseDownFreq = (event) => {
+    dragging_freq = true;
+    startX = event.clientX;
+    startY = event.clientY;
+
+    prevCameraX_FREQUENCY = cameraX_FREQUENCY;
+    prevCameraY_FREQUENCY = cameraY_FREQUENCY;
+}
+
+const handleMouseUpFreq = () => {
+    dragging_freq = false;
 }
 
 const drawFunction = () => {
@@ -127,11 +198,81 @@ const drawGridAndOrigin = () => {
     drawFunction();
 }
 
+const tryFillGlobalBufferFreq = () => {
+    try {
+        if (!function_buffer || function_buffer.length === 0) return;
+
+        const FFT_SIZE = 16384; // Match your FFT size
+
+        // Extract just the y-values
+        const samples = function_buffer.map(point => point.y);
+
+        // Always use exactly FFT_SIZE samples
+        const trimmedSamples = samples.slice(0, FFT_SIZE);
+
+        // Pad with zeros if we don't have enough samples
+        while (trimmedSamples.length < FFT_SIZE) {
+            trimmedSamples.push(0);
+        }
+
+        // Convert to complex array
+        const input = fft.toComplexArray(trimmedSamples);
+
+        // Create output buffer
+        freq_buffer = fft.createComplexArray();
+
+        // Perform FFT
+        fft.realTransform(freq_buffer, input);
+
+    } catch (e) {
+        console.log(e);
+    }
+}
+
+const drawFunctionFFT = () => {
+    if (!freq_buffer) { return; }
+
+    const numBins = freq_buffer.length / 2;
+    const halfBins = numBins / 2;
+
+    for (let i = 0; i < halfBins; i++) {
+        const realIndex = i * 2;
+        const imagIndex = i * 2 + 1;
+
+        const real = freq_buffer[realIndex];
+        const imag = freq_buffer[imagIndex];
+
+        // Calculate magnitude and normalize
+        const magnitude = 10 * Math.sqrt(real * real + imag * imag) / fft.size;
+
+        // Scale frequency to be closer together
+        const frequency = i * 0.1; // Scale down the frequency spacing
+        // Or try: const frequency = i / 10;
+
+        const canvas_coords = convertCartesianToCanvasCoordsFreq(frequency, magnitude);
+        drawCircle(canvas_coords.x, canvas_coords.y, 2, 'red', ctx_frequency);
+    }
+}
+
+const drawGridAndOriginFreq = () => {
+    redrawGridWithCameraFreq();
+    tryFillGlobalBufferFreq();
+    drawFunctionFFT();
+}
+
 const handleMouseMove = (event) => {
-    if (dragging) {
-        cameraX = prevCameraX + event.clientX - startX;
-        cameraY = prevCameraY + event.clientY - startY;
+    if (dragging_time) {
+        cameraX_TIME = prevCameraX_TIME + event.clientX - startX;
+        cameraY_TIME = prevCameraY_TIME + event.clientY - startY;
         drawGridAndOrigin();
+    }
+}
+
+const handleMouseMoveFreq = (event) => {
+    if (dragging_freq) {
+        cameraX_FREQUENCY = prevCameraX_FREQUENCY + event.clientX - startX;
+        cameraY_FREQUENCY = prevCameraY_FREQUENCY + event.clientY - startY;
+        drawGridAndOriginFreq();
     }
 }
 
@@ -155,12 +296,18 @@ const handleFunction = (event) => {
     const f = new Function('x', 'return ' + entry_field.value);
     function_to_draw = f;
 
-    tryFillGlobalBuffer();
+    drawGridAndOrigin();
+    drawGridAndOriginFreq();
 }
 
 drawGridAndOrigin();
+drawGridAndOriginFreq();
 
-canvas.addEventListener('mousedown', handleMouseDown);
-canvas.addEventListener('mouseup', handleMouseUp);
-canvas.addEventListener('mousemove', handleMouseMove);
+canvas_time.addEventListener('mousedown', handleMouseDown);
+canvas_time.addEventListener('mouseup', handleMouseUp);
+canvas_time.addEventListener('mousemove', handleMouseMove);
 entry_field.addEventListener('input', handleFunction);
+
+canvas_frequency.addEventListener('mousedown', handleMouseDownFreq);
+canvas_frequency.addEventListener('mouseup', handleMouseUpFreq);
+canvas_frequency.addEventListener('mousemove', handleMouseMoveFreq);
