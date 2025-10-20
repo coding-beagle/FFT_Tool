@@ -4,9 +4,9 @@ const ctx_time = canvas_time.getContext('2d');
 const canvas_frequency = document.getElementById('freqDomain');
 const ctx_frequency = canvas_frequency.getContext('2d');
 
-const FFT_RES = 16384
+const FFT_RES = 16384 * 2
 
-let fft = new FFT(16384); // Must be a power of 2
+let fft = new FFT(16384 * 2); // Must be a power of 2
 
 const entry_field = document.getElementById('textbox_function')
 
@@ -185,10 +185,14 @@ const handleMouseUpFreq = () => {
 
 const drawFunction = () => {
     if (!function_buffer) { return }
-    for (let i = 0; i < function_buffer.length; i++) {
+    for (let i = 0; i < function_buffer.length - 1; i++) {
         coordinates = function_buffer[i];
-        const canvas_coords = convertCartesianToCanvasCoords(coordinates.x, coordinates.y);
-        drawCircle(canvas_coords.x, canvas_coords.y, 1, 'red');
+        const nextCoords = function_buffer[i + 1];
+        const canvasCoords = convertCartesianToCanvasCoords(coordinates.x, coordinates.y);
+        const canvasCoordsNext = convertCartesianToCanvasCoords(nextCoords.x, nextCoords.y);
+
+        drawLine(canvasCoords.x, canvasCoords.y, canvasCoordsNext.x, canvasCoordsNext.y, 'red', 2, ctx_time);
+        // drawCircle(canvasCoords.x, canvasCoords.y, 1, 'red');
     }
 }
 
@@ -235,22 +239,29 @@ const drawFunctionFFT = () => {
     const numBins = freq_buffer.length / 2;
     const halfBins = numBins / 2;
 
-    for (let i = 0; i < halfBins; i++) {
+    for (let i = 0; i < halfBins - 1; i++) {
         const realIndex = i * 2;
         const imagIndex = i * 2 + 1;
 
         const real = freq_buffer[realIndex];
         const imag = freq_buffer[imagIndex];
 
+        const realNext = freq_buffer[realIndex + 2];
+        const imagNext = freq_buffer[imagIndex + 2];
+
         // Calculate magnitude and normalize
         const magnitude = 10 * Math.sqrt(real * real + imag * imag) / fft.size;
+        const magnitudeNext = 10 * Math.sqrt(realNext * realNext + imagNext * imagNext) / fft.size;
 
         // Scale frequency to be closer together
         const frequency = i * 0.1; // Scale down the frequency spacing
-        // Or try: const frequency = i / 10;
+        const nextFreq = (i + 1) * 0.1;
 
         const canvas_coords = convertCartesianToCanvasCoordsFreq(frequency, magnitude);
-        drawCircle(canvas_coords.x, canvas_coords.y, 2, 'red', ctx_frequency);
+        const canvas_coords2 = convertCartesianToCanvasCoordsFreq(nextFreq, magnitudeNext);
+
+        // drawCircle(canvas_coords.x, canvas_coords.y, 2, 'red', ctx_frequency);
+        drawLine(canvas_coords.x, canvas_coords.y, canvas_coords2.x, canvas_coords2.y, 'red', 2, ctx_frequency);
     }
 }
 
