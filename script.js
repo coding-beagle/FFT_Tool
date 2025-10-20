@@ -300,8 +300,7 @@ const handleFunction = (event) => {
     drawGridAndOriginFreq();
 }
 
-drawGridAndOrigin();
-drawGridAndOriginFreq();
+handleFunction();
 
 canvas_time.addEventListener('mousedown', handleMouseDown);
 canvas_time.addEventListener('mouseup', handleMouseUp);
