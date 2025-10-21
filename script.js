@@ -52,7 +52,9 @@ const namedValues = {
     "log": 'Math.log',
     "tan": 'Math.tan',
     "e": 'Math.exp',
-    '(\\d)(\\D)': `$1*$2`, // handle implicit multiplication
+    "pi": '3.14159268',
+    '(\\d)([a-z])': `$1*$2`, // handle implicit multiplication of constants and digits (10x = 10*x)
+    '([a-z])(\\d)': `$1*$2`, // handle implicit multiplication of digits and constants (x10 = x*10)
 }
 
 const handleTextReplacement = (inputText) => {
