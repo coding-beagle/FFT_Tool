@@ -46,6 +46,28 @@ let function_buffer;
 
 let freq_buffer;
 
+const namedValues = {
+    "sin": 'Math.sin',
+    "cos": 'Math.cos',
+    "log": 'Math.log',
+    "tan": 'Math.tan',
+}
+
+const handleTextReplacement = (inputText) => {
+    output = inputText;
+    for (let key in namedValues) {
+        const regex = new RegExp(key)
+        // console.log(regex);
+        // console.log(`Replacement = ${namedValues[key]}`)
+        // console.log(`Regex matches = ${output.match(regex)}`)
+        output = output.replace(regex, namedValues[key]);
+    }
+
+    console.log(`Output = ${output}`);
+
+    return output;
+}
+
 const drawLine = (x, y, x_end, y_end, colour, thickness = 1, ctx = ctx_time) => {
     ctx.beginPath();
     ctx.moveTo(x, y);
@@ -304,7 +326,7 @@ const tryFillGlobalBuffer = () => {
 }
 
 const handleFunction = (event) => {
-    const f = new Function('x', 'return ' + entry_field.value);
+    const f = new Function('x', 'return ' + handleTextReplacement(entry_field.value));
     function_to_draw = f;
 
     drawGridAndOrigin();
