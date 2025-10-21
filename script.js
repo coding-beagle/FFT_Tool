@@ -10,6 +10,8 @@ let fft = new FFT(8192); // Must be a power of 2
 
 const entry_field = document.getElementById('textbox_function')
 
+const aSlider = document.getElementById('aRange')
+
 let startX, startY;
 let dragging_time = false;
 let dragging_freq = false;
@@ -59,7 +61,14 @@ const namedValues = {
 }
 
 const handleTextReplacement = (inputText) => {
+
     output = inputText;
+
+    // preprocess sliders
+
+    tempARegex = new RegExp("a", 'g');
+    output = output.replace(tempARegex, aSlider.value / 100.0);
+
     for (let key in namedValues) {
         const regex = new RegExp(key, 'g');
         console.log(output.replace(regex, namedValues[key]));
@@ -336,13 +345,23 @@ const handleFunction = (event) => {
     drawGridAndOriginFreq();
 }
 
+const handleMouseLeave = () => {
+    dragging_freq = false;
+    dragging_time = false;
+}
+
 handleFunction();
 
 canvas_time.addEventListener('mousedown', handleMouseDown);
 canvas_time.addEventListener('mouseup', handleMouseUp);
 canvas_time.addEventListener('mousemove', handleMouseMove);
-entry_field.addEventListener('input', handleFunction);
+canvas_time.addEventListener('mouseleave', handleMouseLeave);
 
 canvas_frequency.addEventListener('mousedown', handleMouseDownFreq);
 canvas_frequency.addEventListener('mouseup', handleMouseUpFreq);
 canvas_frequency.addEventListener('mousemove', handleMouseMoveFreq);
+canvas_frequency.addEventListener('mouseleave', handleMouseLeave);
+
+aSlider.addEventListener("input", handleFunction);
+
+entry_field.addEventListener('input', handleFunction);

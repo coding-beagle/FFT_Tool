@@ -2,3 +2,5 @@
   - [ ] Shift to zoom could increase vertical axis
   - [ ] Regular zoom increases horizontal axis
   - [ ] Scale buffer sizes based on zoom magnitude?
+- [ ] Add sliders for variables
+- [ ] Add filters / signal processing
