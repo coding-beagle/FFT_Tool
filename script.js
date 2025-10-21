@@ -4,9 +4,9 @@ const ctx_time = canvas_time.getContext('2d');
 const canvas_frequency = document.getElementById('freqDomain');
 const ctx_frequency = canvas_frequency.getContext('2d');
 
-const FFT_RES = 16384 * 2
+const FFT_RES = 8192
 
-let fft = new FFT(16384 * 2); // Must be a power of 2
+let fft = new FFT(8192); // Must be a power of 2
 
 const entry_field = document.getElementById('textbox_function')
 
@@ -39,7 +39,7 @@ const PIXELS_PER_CELL_Y = CHEIGHT / DENOMINATIONS_Y;
 const PIXELS_PER_UNIT_X = PIXELS_PER_CELL_X / UNITS_PER_CELL_X;
 const PIXELS_PER_UNIT_Y = PIXELS_PER_CELL_Y / UNITS_PER_CELL_Y;
 
-const INCREMENT = 0.001;
+const INCREMENT = 0.01;
 
 let function_to_draw;
 let function_buffer;
@@ -51,6 +51,7 @@ const namedValues = {
     "cos": 'Math.cos',
     "log": 'Math.log',
     "tan": 'Math.tan',
+    "sign": 'Math.sign',
     "e": 'Math.exp',
     "pi": '3.14159268',
     '(\\d)([a-zA-Z])': `$1*$2`, // handle implicit multiplication of constants and digits (10x = 10*x)
