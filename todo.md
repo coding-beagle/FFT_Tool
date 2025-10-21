@@ -1,0 +1,4 @@
+- [ ] Add zooming to both freq and time domain graphs
+  - [ ] Shift to zoom could increase vertical axis
+  - [ ] Regular zoom increases horizontal axis
+  - [ ] Scale buffer sizes based on zoom magnitude?
