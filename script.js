@@ -51,16 +51,16 @@ const namedValues = {
     "cos": 'Math.cos',
     "log": 'Math.log',
     "tan": 'Math.tan',
+    "e": 'Math.exp',
+    '(\\d)(\\D)': `$1*$2`, // handle implicit multiplication
 }
 
 const handleTextReplacement = (inputText) => {
     output = inputText;
     for (let key in namedValues) {
-        const regex = new RegExp(key)
-        // console.log(regex);
-        // console.log(`Replacement = ${namedValues[key]}`)
-        // console.log(`Regex matches = ${output.match(regex)}`)
-        output = output.replace(regex, namedValues[key]);
+        const regex = new RegExp(key, 'g');
+        console.log(output.replace(regex, namedValues[key]));
+        output = output.replaceAll(regex, namedValues[key]);
     }
 
     console.log(`Output = ${output}`);
